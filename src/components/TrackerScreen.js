@@ -2,9 +2,12 @@
 import { useState, useEffect } from "react";
 import { DAYS, getLentenDay } from "../data/days";
 import { getProgress, saveProgress, subscribeReminders } from "../db";
+import { useLang, UI } from "../context/LanguageContext";
 import CircleProgress from "./CircleProgress";
 
 export default function TrackerScreen({ user, onLeaderboard, showToast }) {
+  const { lang } = useLang();
+  const t = UI[lang];
   const [progress, setProgress] = useState({});
   const [selectedDay, setSelectedDay] = useState(getLentenDay());
   const [banner, setBanner] = useState(null);
@@ -35,10 +38,10 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
 
   const pct = Math.round(totalFull / 40 * 100);
   const todayIdx = getLentenDay();
-  const dayData = DAYS[selectedDay];
+  const dayData = DAYS[selectedDay][lang];
   const dp = progress["d" + selectedDay] || {};
 
-  if (!loaded) return <div className="loading">ஏற்றுகிறது...</div>;
+  if (!loaded) return <div className="loading">{t.loading}</div>;
 
   return (
     <div>
@@ -46,8 +49,8 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
       {banner && (
         <div className="reminder-banner">
           <span>📣</span>
-          <span style={{ flex: 1, fontSize: 13 }}>{banner.text}</span>
-          <span className="muted" style={{ fontSize: 10 }}>{banner.date}</span>
+          <span style={{ flex: 1 }}>{banner.text}</span>
+          <span className="muted f10">{banner.date}</span>
           <span className="banner-close" onClick={() => setBanner(null)}>✕</span>
         </div>
       )}
@@ -55,9 +58,9 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
       {/* Progress summary */}
       <div className="card flex-center gap12 mb20" style={{ flexWrap: "wrap" }}>
         <div style={{ flex: 1 }}>
-          <div className="muted f12 mb8">மொத்த முன்னேற்றம்</div>
+          <div className="muted f12 mb8">{t.progress}</div>
           <div className="cormorant gold" style={{ fontSize: 30, fontWeight: 700 }}>
-            {totalFull} <span className="muted" style={{ fontSize: 14 }}>/40 நாட்கள்</span>
+            {totalFull}<span className="muted" style={{ fontSize: 14 }}>{t.days}</span>
           </div>
           <div className="progress-bar-track">
             <div className="progress-bar-fill" style={{ width: pct + "%" }} />
@@ -68,7 +71,7 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
 
       {/* Day grid */}
       <div className="card mb20">
-        <div className="muted f12 mb8">நாட்களை தேர்ந்தெடுக்கவும்</div>
+        <div className="muted f12 mb8">{t.selectDay}</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {DAYS.map((_, i) => {
             const p = getDayProg(i);
@@ -77,16 +80,14 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
             else if (p === 3) cls += " done";
             else if (p > 0) cls += " partial";
             if (i === todayIdx) cls += " today";
-            return (
-              <button key={i} className={cls} onClick={() => setSelectedDay(i)}>{i + 1}</button>
-            );
+            return <button key={i} className={cls} onClick={() => setSelectedDay(i)}>{i + 1}</button>;
           })}
         </div>
         <div className="legend mt8">
-          <span><span className="legend-dot" style={{ background: "var(--green)" }} />முழு</span>
-          <span><span className="legend-dot" style={{ background: "var(--gold)" }} />பகுதி</span>
-          <span><span className="legend-dot" style={{ background: "var(--border)" }} />பாக்கி</span>
-          <span><span className="legend-dot" style={{ border: "2px solid var(--gold)", background: "transparent" }} />இன்று</span>
+          <span><span className="legend-dot" style={{ background: "var(--green)" }} />{t.full}</span>
+          <span><span className="legend-dot" style={{ background: "var(--gold-light)" }} />{t.partial}</span>
+          <span><span className="legend-dot" style={{ background: "var(--border)" }} />{t.pending}</span>
+          <span><span className="legend-dot" style={{ border: "2px solid var(--gold)", background: "transparent" }} />{t.today}</span>
         </div>
       </div>
 
@@ -95,16 +96,16 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
         <div className="flex-center gap12 mb16">
           <div className="day-badge">{selectedDay + 1}</div>
           <div>
-            <div className="cormorant gold bold" style={{ fontSize: 17 }}>நாள் {selectedDay + 1}</div>
-            {selectedDay === todayIdx && <div className="muted" style={{ fontSize: 11 }}>இன்றைய நாள் ✦</div>}
+            <div className="cormorant gold bold" style={{ fontSize: 18 }}>{t.dayLabel} {selectedDay + 1}</div>
+            {selectedDay === todayIdx && <div className="muted italic" style={{ fontSize: 11 }}>{t.todayLabel}</div>}
           </div>
           <div className="muted f13" style={{ marginLeft: "auto" }}>{getDayProg(selectedDay)}/3</div>
         </div>
 
         {[
-          { key: "do",    label: "செய்யுங்கள்",     icon: "🙏", color: "var(--blue-accent)",  text: dayData.do },
-          { key: "give",  label: "கொடுங்கள்",       icon: "❤️", color: "var(--pink-accent)",  text: dayData.give },
-          { key: "avoid", label: "விட்டுவிடுங்கள்", icon: "🕊️", color: "var(--gold)",         text: dayData.avoid },
+          { key: "do",    label: t.doLabel,    icon: "🙏", color: "var(--blue-accent)",  text: dayData.do },
+          { key: "give",  label: t.giveLabel,  icon: "❤️", color: "var(--pink-accent)",  text: dayData.give },
+          { key: "avoid", label: t.avoidLabel, icon: "🕊️", color: "var(--gold)",         text: dayData.avoid },
         ].map(item => (
           <div
             key={item.key}
@@ -122,9 +123,7 @@ export default function TrackerScreen({ user, onLeaderboard, showToast }) {
         ))}
       </div>
 
-      <button className="secondary-btn full" onClick={onLeaderboard}>
-        🏆 சமூக முன்னேற்ற பட்டியல் காண்க
-      </button>
+      <button className="secondary-btn full" onClick={onLeaderboard}>{t.leaderboard}</button>
     </div>
   );
 }

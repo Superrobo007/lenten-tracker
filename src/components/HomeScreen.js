@@ -1,18 +1,19 @@
 // src/components/HomeScreen.js
+import { useLang, UI } from "../context/LanguageContext";
+
 export default function HomeScreen({ onRegister, onLogin }) {
+  const { lang } = useLang();
+  const t = UI[lang];
   return (
-    <div className="center" style={{ paddingTop: 50 }}>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>✝</div>
-      <h1 className="cormorant gold" style={{ fontSize: 32, letterSpacing: 3, marginBottom: 6 }}>
-        தவக்கால பயணம்
-      </h1>
-      <p className="muted f13" style={{ marginBottom: 4 }}>Lenten Journey 2026 · 40 நாட்கள்</p>
-      <p className="muted" style={{ fontSize: 11, marginBottom: 48 }}>
-        TNBC Commission for Charismatic Renewal and Proclamation
-      </p>
+    <div className="center" style={{ paddingTop: 40 }}>
+      <div className="home-cross">✝</div>
+      <h1 className="home-title">{t.welcome}</h1>
+      <div className="home-purple-line" />
+      <p className="muted f13" style={{ marginBottom: 4 }}>{t.subtitle}</p>
+      <p className="muted italic" style={{ fontSize: 11, marginBottom: 48 }}>{t.org}</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 280, margin: "0 auto" }}>
-        <button className="primary-btn" onClick={onRegister}>புதிய பதிவு</button>
-        <button className="secondary-btn" onClick={onLogin}>மீண்டும் உள்நுழை</button>
+        <button className="primary-btn" onClick={onRegister}>{t.newReg}</button>
+        <button className="secondary-btn" onClick={onLogin}>{t.loginAgain}</button>
       </div>
     </div>
   );

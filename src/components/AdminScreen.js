@@ -1,17 +1,13 @@
 // src/components/AdminScreen.js
 import { useState, useEffect } from "react";
 import { getAllUsers, deleteUser, buildLeaderboard, sendReminder, getReminders, deleteReminder } from "../db";
+import { useLang, UI } from "../context/LanguageContext";
 import LeaderboardScreen from "./LeaderboardScreen";
 
-const TABS = [
-  { id: "overview",  label: "கண்ணோட்டம்" },
-  { id: "members",   label: "உறுப்பினர்கள்" },
-  { id: "reminder",  label: "நினைவூட்டல்" },
-  { id: "leaderboard", label: "தரவரிசை" },
-];
-
 export default function AdminScreen({ showToast }) {
-  const [tab, setTab] = useState("overview");
+  const { lang } = useLang();
+  const t = UI[lang];
+  const [tab, setTab] = useState(0);
   const [members, setMembers] = useState([]);
   const [stats, setStats] = useState(null);
   const [reminders, setReminders] = useState([]);
@@ -21,11 +17,8 @@ export default function AdminScreen({ showToast }) {
   const loadData = async () => {
     setLoading(true);
     const [users, leaderboard, rems] = await Promise.all([
-      getAllUsers(),
-      buildLeaderboard(),
-      getReminders(),
+      getAllUsers(), buildLeaderboard(), getReminders(),
     ]);
-    // Merge leaderboard stats into members
     const lbMap = {};
     for (const r of leaderboard) lbMap[r.id] = r;
     const enriched = users.map(u => ({ ...u, ...(lbMap[u.id] || { full: 0, partial: 0 }) }));
@@ -44,10 +37,10 @@ export default function AdminScreen({ showToast }) {
   useEffect(() => { loadData(); }, []);
 
   const handleRemove = async (id) => {
-    if (!window.confirm("இந்த உறுப்பினரை நீக்கவா?")) return;
+    if (!window.confirm(t.confirmRemove)) return;
     await deleteUser(id);
     await loadData();
-    showToast("உறுப்பினர் நீக்கப்பட்டார்");
+    showToast(t.toastRemoved);
   };
 
   const handleSendReminder = async () => {
@@ -55,7 +48,7 @@ export default function AdminScreen({ showToast }) {
     await sendReminder(reminderText.trim());
     setReminderText("");
     await loadData();
-    showToast("நினைவூட்டல் அனுப்பப்பட்டது ✓");
+    showToast(t.toastReminder);
   };
 
   const handleDeleteReminder = async (id) => {
@@ -65,27 +58,27 @@ export default function AdminScreen({ showToast }) {
 
   return (
     <div>
-      <h2 className="cormorant gold" style={{ fontSize: 26, marginBottom: 4 }}>நிர்வாக பலகை</h2>
-      <p className="muted f12 mb20">TNBC Lenten Journey 2026</p>
+      <h2 className="cormorant gold" style={{ fontSize: 26, marginBottom: 4 }}>{t.adminTitle}</h2>
+      <p className="muted f12 italic mb20">{t.org}</p>
 
       <div className="tabs">
-        {TABS.map(t => (
-          <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}
+        {t.tabs.map((label, i) => (
+          <button key={i} className={`tab-btn ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
+            {label}
           </button>
         ))}
       </div>
 
-      {loading && tab !== "leaderboard" && <div className="loading">ஏற்றுகிறது...</div>}
+      {loading && tab !== 3 && <div className="loading">{t.loading}</div>}
 
       {/* OVERVIEW */}
-      {tab === "overview" && !loading && stats && (
+      {tab === 0 && !loading && stats && (
         <div>
           <div className="stat-grid mb20">
             {[
-              { icon: "👥", value: stats.total,  label: "மொத்த உறுப்பினர்கள்" },
-              { icon: "✨", value: stats.active, label: "செயலில் உள்ளவர்கள்" },
-              { icon: "📅", value: stats.avg,    label: "சராசரி முழு நாட்கள்" },
+              { icon: "👥", value: stats.total, label: t.statLabels[0] },
+              { icon: "✨", value: stats.active, label: t.statLabels[1] },
+              { icon: "📅", value: stats.avg, label: t.statLabels[2] },
             ].map((s, i) => (
               <div key={i} className="card stat-card">
                 <div className="stat-icon">{s.icon}</div>
@@ -94,27 +87,27 @@ export default function AdminScreen({ showToast }) {
               </div>
             ))}
           </div>
-          <button className="secondary-btn" onClick={loadData}>புதுப்பி ↻</button>
+          <button className="secondary-btn" onClick={loadData}>{t.refresh}</button>
         </div>
       )}
 
       {/* MEMBERS */}
-      {tab === "members" && !loading && (
+      {tab === 1 && !loading && (
         <div>
-          <p className="muted f12 mb16">{members.length} உறுப்பினர்கள் பதிவாகியுள்ளனர்</p>
+          <p className="muted f12 mb16">{members.length} {t.members}</p>
           {members.map(m => (
             <div key={m.id} className="card mb8">
               <div className="member-row">
                 <div className="member-info">
                   <div className="member-name">{m.name}</div>
-                  <div className="member-sub">{m.joinedAt} அன்று சேர்ந்தார்</div>
-                  <div className="member-stats">✅ {m.full} முழு · ⚡ {m.partial} பகுதி</div>
+                  <div className="member-sub">{m.joinedAt} {t.joinedAt}</div>
+                  <div className="member-stats">✅ {m.full} {t.fullMark} · ⚡ {m.partial} {t.partialMark}</div>
                 </div>
                 <div className="member-actions">
                   <div className="member-pct" style={{ color: m.full > 20 ? "var(--green)" : "var(--gold)" }}>
                     {Math.round(m.full / 40 * 100)}%
                   </div>
-                  <button className="danger-btn" onClick={() => handleRemove(m.id)}>நீக்கு</button>
+                  <button className="danger-btn" onClick={() => handleRemove(m.id)}>{t.remove}</button>
                 </div>
               </div>
             </div>
@@ -122,29 +115,23 @@ export default function AdminScreen({ showToast }) {
         </div>
       )}
 
-      {/* REMINDER */}
-      {tab === "reminder" && (
+      {/* REMINDERS */}
+      {tab === 2 && (
         <div>
           <div className="card mb20">
-            <h3 className="gold" style={{ fontSize: 15, marginBottom: 12 }}>அனைவருக்கும் நினைவூட்டல் அனுப்பு</h3>
-            <textarea
-              className="input full"
-              value={reminderText}
-              onChange={e => setReminderText(e.target.value)}
-              placeholder="உங்கள் செய்தியை இங்கே உள்ளிடுக..."
-            />
-            <button className="primary-btn mt12" onClick={handleSendReminder}>அனுப்பு</button>
+            <h3 className="gold" style={{ fontSize: 15, marginBottom: 12 }}>{t.reminderTitle}</h3>
+            <textarea className="input full" value={reminderText} onChange={e => setReminderText(e.target.value)} placeholder={t.reminderPlaceholder} />
+            <button className="primary-btn mt12" onClick={handleSendReminder}>{t.send}</button>
           </div>
-
           {reminders.length > 0 && (
             <>
-              <p className="section-title">முந்தைய நினைவூட்டல்கள்</p>
+              <p className="section-title">{t.prevReminders}</p>
               {reminders.map(r => (
                 <div key={r.id} className="card mb8 reminder-item">
                   <div>{r.text}</div>
                   <div className="reminder-meta">
                     <span>{r.date} · {r.time}</span>
-                    <button className="danger-btn" onClick={() => handleDeleteReminder(r.id)}>நீக்கு</button>
+                    <button className="danger-btn" onClick={() => handleDeleteReminder(r.id)}>{t.remove}</button>
                   </div>
                 </div>
               ))}
@@ -154,9 +141,7 @@ export default function AdminScreen({ showToast }) {
       )}
 
       {/* LEADERBOARD */}
-      {tab === "leaderboard" && (
-        <LeaderboardScreen onBack={null} currentUserId={null} />
-      )}
+      {tab === 3 && <LeaderboardScreen onBack={null} currentUserId={null} />}
     </div>
   );
 }

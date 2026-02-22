@@ -1,5 +1,6 @@
 // src/App.js
 import { useState, useEffect } from "react";
+import { LanguageProvider, useLang, UI } from "./context/LanguageContext";
 import HomeScreen from "./components/HomeScreen";
 import AuthScreen from "./components/AuthScreen";
 import TrackerScreen from "./components/TrackerScreen";
@@ -10,21 +11,20 @@ import { ADMIN_PASSWORD } from "./data/days";
 import { registerUser, loginUser } from "./db";
 import "./App.css";
 
-export default function App() {
+function AppInner() {
+  const { lang, toggle } = useLang();
+  const t = UI[lang];
+
   const [screen, setScreen] = useState("home");
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // Restore session from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("lenten_session");
     if (saved) {
-      try {
-        const u = JSON.parse(saved);
-        setUser(u);
-        setScreen("tracker");
-      } catch {}
+      try { const u = JSON.parse(saved); setUser(u); setScreen("tracker"); }
+      catch {}
     }
   }, []);
 
@@ -33,65 +33,63 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleRegister = async (name) => {
+  const handleRegister = async (name, password) => {
     try {
-      const newUser = await registerUser(name);
+      const newUser = await registerUser(name, password);
       localStorage.setItem("lenten_session", JSON.stringify(newUser));
       setUser(newUser);
       setScreen("tracker");
-      showToast("வரவேற்கிறோம், " + newUser.name + "! 🙏");
+      showToast(t.toastWelcome(newUser.name));
     } catch (e) {
-      if (e.message === "NAME_TAKEN") showToast("இந்தப் பெயர் ஏற்கனவே உள்ளது", "error");
-      else showToast("பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.", "error");
+      if (e.message === "NAME_TAKEN") showToast(t.toastNameTaken, "error");
+      else showToast(t.toastError, "error");
     }
   };
 
-  const handleLogin = async (name) => {
+  const handleLogin = async (name, password) => {
     try {
-      const found = await loginUser(name);
+      const found = await loginUser(name, password);
       localStorage.setItem("lenten_session", JSON.stringify(found));
       setUser(found);
       setScreen("tracker");
-      showToast("மீண்டும் வரவேற்கிறோம், " + found.name + "! 🙏");
-    } catch {
-      showToast("பெயர் காணவில்லை. முதலில் பதிவு செய்யவும்.", "error");
+      showToast(t.toastBack(found.name));
+    } catch (e) {
+      if (e.message === "WRONG_PASSWORD") showToast(t.toastWrongPw, "error");
+      else showToast(t.toastNotFound, "error");
     }
   };
 
   const handleAdminLogin = (pass) => {
-    if (pass === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      setScreen("admin");
-    } else {
-      showToast("தவறான கடவுச்சொல்", "error");
-    }
+    if (pass === ADMIN_PASSWORD) { setIsAdmin(true); setScreen("admin"); }
+    else showToast(t.toastAdminWrong, "error");
   };
 
   const logout = () => {
     localStorage.removeItem("lenten_session");
-    setUser(null);
-    setIsAdmin(false);
-    setScreen("home");
+    setUser(null); setIsAdmin(false); setScreen("home");
   };
 
   return (
     <div className="app">
-      <div className="ambient-glow" />
-
       <header className="header">
         <div className="header-brand">
           <span className="cross">✝</span>
           <div>
-            <div className="brand-name">TNBC</div>
-            <div className="brand-sub">தவக்கால பயண தடிமி</div>
+            <div className="brand-name">{t.appName}</div>
+            <div className="brand-sub">{t.appSub}</div>
           </div>
         </div>
         <div className="header-actions">
+          {/* Language toggle — always visible */}
+          <div className="lang-toggle">
+            <button className={`lang-btn ${lang === "ta" ? "active" : ""}`} onClick={() => lang !== "ta" && toggle()}>தமிழ்</button>
+            <button className={`lang-btn ${lang === "en" ? "active" : ""}`} onClick={() => lang !== "en" && toggle()}>EN</button>
+          </div>
           {user && <span className="user-badge">🙏 {user.name}</span>}
-          {(user || isAdmin) && <button className="ghost-btn" onClick={logout}>வெளி</button>}
-          {!user && screen !== "home" && <button className="ghost-btn" onClick={() => setScreen("home")}>← பின்</button>}
+          {(user || isAdmin) && <button className="ghost-btn" onClick={logout}>{t.logout}</button>}
+          {!user && screen !== "home" && <button className="ghost-btn" onClick={() => setScreen("home")}>{t.back}</button>}
           {!isAdmin && !user && screen === "home" && (
-            <button className="ghost-btn small" onClick={() => setScreen("adminLogin")}>நிர்வாக</button>
+            <button className="ghost-btn small" onClick={() => setScreen("adminLogin")}>{t.admin}</button>
           )}
         </div>
       </header>
@@ -99,48 +97,29 @@ export default function App() {
       {toast && <Toast message={toast.msg} type={toast.type} />}
 
       <main className="main">
-        {screen === "home" && (
-          <HomeScreen
-            onRegister={() => setScreen("register")}
-            onLogin={() => setScreen("login")}
-          />
-        )}
+        {screen === "home" && <HomeScreen onRegister={() => setScreen("register")} onLogin={() => setScreen("login")} />}
         {screen === "register" && (
           <AuthScreen
-            title="புதிய பதிவு"
-            btnLabel="பதிவு செய்யுங்கள்"
-            onSubmit={handleRegister}
-            footer={<>ஏற்கனவே உள்ளீர்களா? <span className="link" onClick={() => setScreen("login")}>உள்நுழைக</span></>}
+            title={t.register} btnLabel={t.newReg}
+            onSubmit={handleRegister} isRegister
+            footer={<>{t.alreadyReg} <span className="link" onClick={() => setScreen("login")}>{t.login}</span></>}
           />
         )}
         {screen === "login" && (
           <AuthScreen
-            title="உள்நுழைக"
-            btnLabel="உள்நுழைக"
+            title={t.login} btnLabel={t.login}
             onSubmit={handleLogin}
-            footer={<>புதியவரா? <span className="link" onClick={() => setScreen("register")}>பதிவு செய்க</span></>}
+            footer={<>{t.notReg} <span className="link" onClick={() => setScreen("register")}>{t.newReg}</span></>}
           />
         )}
         {screen === "adminLogin" && (
-          <AuthScreen
-            title="நிர்வாக உள்நுழைவு"
-            btnLabel="உள்நுழைக"
-            isPassword
-            onSubmit={handleAdminLogin}
-          />
+          <AuthScreen title={t.adminLogin} btnLabel={t.submit} onSubmit={(_, pw) => handleAdminLogin(pw)} isAdminLogin />
         )}
         {screen === "tracker" && user && (
-          <TrackerScreen
-            user={user}
-            onLeaderboard={() => setScreen("leaderboard")}
-            showToast={showToast}
-          />
+          <TrackerScreen user={user} onLeaderboard={() => setScreen("leaderboard")} showToast={showToast} />
         )}
         {screen === "leaderboard" && (
-          <LeaderboardScreen
-            onBack={() => setScreen(user ? "tracker" : "home")}
-            currentUserId={user?.id}
-          />
+          <LeaderboardScreen onBack={() => setScreen(user ? "tracker" : "home")} currentUserId={user?.id} />
         )}
         {screen === "admin" && isAdmin && (
           <AdminScreen showToast={showToast} onLeaderboard={() => setScreen("leaderboard")} />
@@ -148,4 +127,8 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  return <LanguageProvider><AppInner /></LanguageProvider>;
 }

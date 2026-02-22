@@ -1,39 +1,55 @@
-// src/db.js  — All Firebase calls live here
+// src/db.js
 import {
-  doc, getDoc, setDoc, updateDoc,
-  collection, getDocs, deleteDoc,
-  onSnapshot, serverTimestamp, query, orderBy
+  doc, getDoc, setDoc, getDocs, deleteDoc,
+  collection, onSnapshot, serverTimestamp, query, orderBy
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+// Simple hash — not cryptographic, but enough for this use case
+export function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString(16);
+}
+
 // ── USERS ────────────────────────────────────────────────────────────────────
 
-export async function registerUser(name) {
-  // Check if name taken
+export async function registerUser(name, password) {
   const snap = await getDocs(collection(db, "users"));
   for (const d of snap.docs) {
     if (d.data().name === name) throw new Error("NAME_TAKEN");
   }
   const id = "user_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  const pwHash = simpleHash(password);
   await setDoc(doc(db, "users", id), {
-    id, name,
+    id, name, pwHash,
     joinedAt: new Date().toLocaleDateString("en-CA"),
     createdAt: serverTimestamp(),
   });
   return { id, name };
 }
 
-export async function loginUser(name) {
+export async function loginUser(name, password) {
   const snap = await getDocs(collection(db, "users"));
   for (const d of snap.docs) {
-    if (d.data().name === name) return d.data();
+    const u = d.data();
+    if (u.name === name) {
+      if (u.pwHash !== simpleHash(password)) throw new Error("WRONG_PASSWORD");
+      return { id: u.id, name: u.name };
+    }
   }
   throw new Error("NOT_FOUND");
 }
 
 export async function getAllUsers() {
   const snap = await getDocs(collection(db, "users"));
-  return snap.docs.map(d => d.data());
+  return snap.docs.map(d => {
+    const { pwHash, ...safe } = d.data(); // never expose hash
+    return safe;
+  });
 }
 
 export async function deleteUser(userId) {
@@ -48,16 +64,14 @@ export async function getProgress(userId) {
 }
 
 export async function saveProgress(userId, dayIndex, checks) {
-  const ref = doc(db, "progress", userId);
-  await setDoc(ref, { ["d" + dayIndex]: checks, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(
+    doc(db, "progress", userId),
+    { ["d" + dayIndex]: checks, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
 }
 
-// Live listener for leaderboard
-export function subscribeLeaderboard(callback) {
-  return onSnapshot(collection(db, "progress"), () => {
-    buildLeaderboard().then(callback);
-  });
-}
+// ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
 export async function buildLeaderboard() {
   const [usersSnap, progressSnap] = await Promise.all([
@@ -66,13 +80,21 @@ export async function buildLeaderboard() {
   ]);
   const progressMap = {};
   for (const d of progressSnap.docs) progressMap[d.id] = d.data();
+
   return usersSnap.docs.map(d => {
     const u = d.data();
     const p = progressMap[u.id] || {};
     const full = Object.keys(p).filter(k => k.startsWith("d") && p[k]?.do && p[k]?.give && p[k]?.avoid).length;
     const partial = Object.keys(p).filter(k => k.startsWith("d") && (p[k]?.do || p[k]?.give || p[k]?.avoid) && !(p[k]?.do && p[k]?.give && p[k]?.avoid)).length;
-    return { ...u, full, partial };
+    return { id: u.id, name: u.name, full, partial };
   }).sort((a, b) => (b.full * 3 + b.partial) - (a.full * 3 + a.partial));
+}
+
+export function subscribeLeaderboard(callback) {
+  // Listen for any change in progress collection
+  return onSnapshot(collection(db, "progress"), () => {
+    buildLeaderboard().then(callback);
+  });
 }
 
 // ── REMINDERS ────────────────────────────────────────────────────────────────
@@ -95,7 +117,7 @@ export async function getReminders() {
 export function subscribeReminders(callback) {
   return onSnapshot(
     query(collection(db, "reminders"), orderBy("createdAt", "desc")),
-    (snap) => callback(snap.docs.map(d => d.data()).slice(0, 10))
+    snap => callback(snap.docs.map(d => d.data()).slice(0, 10))
   );
 }
 
