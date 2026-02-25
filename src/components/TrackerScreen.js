@@ -54,7 +54,38 @@ export default function TrackerScreen({ user, showToast }) {
     return () => unsub();
   }, [user.id]);
 
+  const todayIdx = getLentenDay();
+
+  // ── LOCK RULES ────────────────────────────────────────────────────────────
+  // Only future days (after today) are locked.
+  // Today and all past days are freely selectable and editable.
+  const isDaySelectable = (i) => i <= todayIdx;
+
+  const canCheckDay = (i) => i <= todayIdx;
+
+  const handleDayClick = (i) => {
+    if (!isDaySelectable(i)) {
+      showToast(
+        lang === "ta"
+          ? "இன்னும் வரவில்லை — அந்த நாள் திறக்கும்போது பதிவிடலாம்"
+          : "That day hasn't arrived yet — come back then!",
+        "error"
+      );
+      return;
+    }
+    setSelectedDay(i);
+  };
+
   const handleCheck = async (dayIdx, field) => {
+    if (!canCheckDay(dayIdx)) {
+      showToast(
+        lang === "ta"
+          ? "இன்னும் வரவில்லை — அந்த நாள் திறக்கும்போது பதிவிடலாம்"
+          : "That day hasn't arrived yet!",
+        "error"
+      );
+      return;
+    }
     const key = "d" + dayIdx;
     const cur = progress[key] || {};
     const wasChecked = cur[field];
@@ -91,10 +122,13 @@ export default function TrackerScreen({ user, showToast }) {
 
   const pct = Math.round(totalFull / 40 * 100);
   const streak = getStreak(progress);
-  const todayIdx = getLentenDay();
   const dayData = DAYS[selectedDay][lang];
   const dp = progress["d" + selectedDay] || {};
   const daysLeft = Math.max(0, 39 - todayIdx);
+
+  // Is the currently viewed day editable?
+  const isViewingToday = selectedDay === todayIdx;
+  const isEditablePast = selectedDay < todayIdx;
 
   if (!loaded) return <div className="loading">{t.loading}</div>;
 
@@ -118,7 +152,6 @@ export default function TrackerScreen({ user, showToast }) {
 
       {/* === STATS DASHBOARD === */}
       <div className="stats-dashboard">
-        {/* Main hero card */}
         <div className="stats-main-card">
           <div className="stats-hero-row">
             <CircleProgress pct={pct} size={96} />
@@ -131,7 +164,6 @@ export default function TrackerScreen({ user, showToast }) {
               <div className="stats-motivational">{getMotivationalMsg(totalFull, lang)}</div>
             </div>
           </div>
-          {/* Journey bar */}
           <div style={{ marginTop: 14 }}>
             <div className="journey-bar-header">
               <span className="f12 muted">{lang === "ta" ? "40 நாள் பயணம்" : "40-Day Journey"}</span>
@@ -148,7 +180,6 @@ export default function TrackerScreen({ user, showToast }) {
           </div>
         </div>
 
-        {/* Mini stat chips */}
         <div className="stats-chips-row">
           <div className="stat-chip streak-chip">
             <div className="stat-chip-icon">🔥</div>
@@ -179,14 +210,24 @@ export default function TrackerScreen({ user, showToast }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {DAYS.map((_, i) => {
             const p = getDayProg(i);
+            const isFuture = i > todayIdx;
+
             let cls = "day-pill";
             if (i === selectedDay) cls += " selected";
             else if (p === 3) cls += " done";
             else if (p > 0) cls += " partial";
             if (i === todayIdx) cls += " today";
+            if (isFuture) cls += " locked";
+
             return (
-              <button key={i} className={cls} onClick={() => setSelectedDay(i)}>
-                {p === 3 && i !== selectedDay ? "✓" : i + 1}
+              <button
+                key={i}
+                className={cls}
+                onClick={() => handleDayClick(i)}
+                title={isFuture ? (lang === "ta" ? "இன்னும் வரவில்லை" : "Not yet") : ""}
+                style={{ cursor: isFuture ? "not-allowed" : "pointer" }}
+              >
+                {isFuture ? "—" : p === 3 && i !== selectedDay ? "✓" : i + 1}
               </button>
             );
           })}
@@ -196,6 +237,9 @@ export default function TrackerScreen({ user, showToast }) {
           <span><span className="legend-dot" style={{ background: "var(--gold-light)" }} />{t.partial}</span>
           <span><span className="legend-dot" style={{ background: "var(--border)" }} />{t.pending}</span>
           <span><span className="legend-dot" style={{ border: "2px solid var(--gold)", background: "transparent" }} />{t.today}</span>
+          <span><span className="legend-dot" style={{ background: "var(--border-light)", opacity: 0.5 }} />
+            {lang === "ta" ? "பூட்டு" : "Locked"}
+          </span>
         </div>
       </div>
 
@@ -205,10 +249,17 @@ export default function TrackerScreen({ user, showToast }) {
           <div className="day-badge">{selectedDay + 1}</div>
           <div style={{ flex: 1 }}>
             <div className="cormorant gold bold" style={{ fontSize: 18 }}>{t.dayLabel} {selectedDay + 1}</div>
-            {selectedDay === todayIdx && <div className="muted italic" style={{ fontSize: 11 }}>{t.todayLabel}</div>}
+            {isViewingToday && (
+              <div className="muted italic" style={{ fontSize: 11 }}>{t.todayLabel}</div>
+            )}
+            {isEditablePast && (
+              <div style={{ fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>
+                {lang === "ta" ? "✏️ திருத்தலாம்" : "✏️ Editable"}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            {["do","give","avoid"].map(k => (
+            {["do", "give", "avoid"].map(k => (
               <span key={k} style={{
                 width: 20, height: 20, borderRadius: "50%",
                 background: dp[k] ? "var(--green)" : "var(--border-light)",
@@ -246,6 +297,7 @@ export default function TrackerScreen({ user, showToast }) {
             <span>{lang === "ta" ? "இன்று முழுமையானது! மிகவும் நல்லது!" : "Day Complete! Well done!"}</span>
           </div>
         )}
+
       </div>
     </div>
   );
