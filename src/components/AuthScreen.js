@@ -6,12 +6,23 @@ export default function AuthScreen({ title, btnLabel, onSubmit, footer, isRegist
   const { lang } = useLang();
   const t = UI[lang];
   const [name, setName] = useState("");
+  const [parish, setParish] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
 
   const handleSubmit = () => {
     if (isAdminLogin) { if (password.trim()) onSubmit("", password.trim()); return; }
+    if (isRegister) {
+      if (name.trim() && password.trim()) onSubmit(name.trim(), password.trim(), parish.trim(), phone.trim());
+      return;
+    }
     if (name.trim() && password.trim()) onSubmit(name.trim(), password.trim());
+  };
+
+  const labelStyle = {
+    fontSize: 11, color: "var(--muted)", fontWeight: 600,
+    letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6
   };
 
   return (
@@ -24,40 +35,43 @@ export default function AuthScreen({ title, btnLabel, onSubmit, footer, isRegist
       <div className="card">
         {!isAdminLogin && (
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-              {t.namePlaceholder}
-            </label>
-            <input
-              className="input"
-              type="text"
-              value={name}
+            <label style={labelStyle}>{t.namePlaceholder}</label>
+            <input className="input" type="text" value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSubmit()}
-              placeholder={t.namePlaceholder}
-              autoFocus
-            />
+              placeholder={t.namePlaceholder} autoFocus />
           </div>
         )}
 
+        {isRegister && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>{lang === "ta" ? "ஆலயம் / இடம்" : "Parish / Location"}</label>
+              <input className="input" type="text" value={parish}
+                onChange={e => setParish(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                placeholder={lang === "ta" ? "உங்கள் ஆலயம் / ஊர்" : "Your parish or town"} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>{lang === "ta" ? "தொலைபேசி எண்" : "Phone Number"}</label>
+              <input className="input" type="text" value={phone}
+                onChange={e => setPhone(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                placeholder={lang === "ta" ? "உங்கள் தொலைபேசி எண்" : "Your phone number"} />
+            </div>
+          </>
+        )}
+
         <div style={{ marginBottom: 18 }}>
-          <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-            {t.passwordPlaceholder}
-          </label>
+          <label style={labelStyle}>{t.passwordPlaceholder}</label>
           <div style={{ position: "relative" }}>
-            <input
-              className="input"
-              type={showPw ? "text" : "password"}
-              value={password}
+            <input className="input" type={showPw ? "text" : "password"} value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSubmit()}
               placeholder={t.passwordPlaceholder}
-              autoFocus={isAdminLogin}
-              style={{ paddingRight: 44 }}
-            />
-            <button
-              onClick={() => setShowPw(v => !v)}
-              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--muted)" }}
-            >
+              autoFocus={isAdminLogin} style={{ paddingRight: 44 }} />
+            <button onClick={() => setShowPw(v => !v)}
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--muted)" }}>
               {showPw ? "🙈" : "👁️"}
             </button>
           </div>

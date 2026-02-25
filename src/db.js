@@ -5,7 +5,6 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// Simple hash — not cryptographic, but enough for this use case
 export function simpleHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -15,9 +14,9 @@ export function simpleHash(str) {
   return hash.toString(16);
 }
 
-// ── USERS ────────────────────────────────────────────────────────────────────
+// ── USERS ─────────────────────────────────────────────────────────────────────
 
-export async function registerUser(name, password) {
+export async function registerUser(name, password, parish = "", phone = "") {
   const snap = await getDocs(collection(db, "users"));
   for (const d of snap.docs) {
     if (d.data().name === name) throw new Error("NAME_TAKEN");
@@ -25,11 +24,11 @@ export async function registerUser(name, password) {
   const id = "user_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
   const pwHash = simpleHash(password);
   await setDoc(doc(db, "users", id), {
-    id, name, pwHash,
+    id, name, pwHash, parish, phone,
     joinedAt: new Date().toLocaleDateString("en-CA"),
     createdAt: serverTimestamp(),
   });
-  return { id, name };
+  return { id, name, parish, phone };
 }
 
 export async function loginUser(name, password) {
@@ -38,7 +37,7 @@ export async function loginUser(name, password) {
     const u = d.data();
     if (u.name === name) {
       if (u.pwHash !== simpleHash(password)) throw new Error("WRONG_PASSWORD");
-      return { id: u.id, name: u.name };
+      return { id: u.id, name: u.name, parish: u.parish || "", phone: u.phone || "" };
     }
   }
   throw new Error("NOT_FOUND");
@@ -47,7 +46,7 @@ export async function loginUser(name, password) {
 export async function getAllUsers() {
   const snap = await getDocs(collection(db, "users"));
   return snap.docs.map(d => {
-    const { pwHash, ...safe } = d.data(); // never expose hash
+    const { pwHash, ...safe } = d.data();
     return safe;
   });
 }
@@ -56,7 +55,7 @@ export async function deleteUser(userId) {
   await deleteDoc(doc(db, "users", userId));
 }
 
-// ── PROGRESS ─────────────────────────────────────────────────────────────────
+// ── PROGRESS ──────────────────────────────────────────────────────────────────
 
 export async function getProgress(userId) {
   const d = await getDoc(doc(db, "progress", userId));
@@ -85,28 +84,36 @@ export async function buildLeaderboard() {
     const u = d.data();
     const p = progressMap[u.id] || {};
     const full = Object.keys(p).filter(k => k.startsWith("d") && p[k]?.do && p[k]?.give && p[k]?.avoid).length;
-    const partial = Object.keys(p).filter(k => k.startsWith("d") && (p[k]?.do || p[k]?.give || p[k]?.avoid) && !(p[k]?.do && p[k]?.give && p[k]?.avoid)).length;
-    return { id: u.id, name: u.name, full, partial };
+    const partial = Object.keys(p).filter(k =>
+      k.startsWith("d") && (p[k]?.do || p[k]?.give || p[k]?.avoid) &&
+      !(p[k]?.do && p[k]?.give && p[k]?.avoid)
+    ).length;
+    return { id: u.id, name: u.name, parish: u.parish || "", phone: u.phone || "", full, partial };
   }).sort((a, b) => (b.full * 3 + b.partial) - (a.full * 3 + a.partial));
 }
 
 export function subscribeLeaderboard(callback) {
-  // Listen for any change in progress collection
   return onSnapshot(collection(db, "progress"), () => {
     buildLeaderboard().then(callback);
   });
 }
 
-// ── REMINDERS ────────────────────────────────────────────────────────────────
+// ── REMINDERS ─────────────────────────────────────────────────────────────────
 
-export async function sendReminder(text) {
+export async function sendReminder(text, attachment = null) {
   const id = "rem_" + Date.now();
-  await setDoc(doc(db, "reminders", id), {
+  const data = {
     id, text,
     date: new Date().toLocaleDateString("en-CA"),
     time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
     createdAt: serverTimestamp(),
-  });
+  };
+  if (attachment) {
+    data.attachmentUrl = attachment.dataUrl;
+    data.attachmentName = attachment.name;
+    data.attachmentType = attachment.type;
+  }
+  await setDoc(doc(db, "reminders", id), data);
 }
 
 export async function getReminders() {

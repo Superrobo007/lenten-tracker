@@ -33,9 +33,9 @@ function AppInner() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleRegister = async (name, password) => {
+  const handleRegister = async (name, password, parish, phone) => {
     try {
-      const newUser = await registerUser(name, password);
+      const newUser = await registerUser(name, password, parish, phone);
       localStorage.setItem("lenten_session", JSON.stringify(newUser));
       setUser(newUser);
       setScreen("tracker");
@@ -80,7 +80,6 @@ function AppInner() {
           </div>
         </div>
         <div className="header-actions">
-          {/* Language toggle — always visible */}
           <div className="lang-toggle">
             <button className={`lang-btn ${lang === "ta" ? "active" : ""}`} onClick={() => lang !== "ta" && toggle()}>தமிழ்</button>
             <button className={`lang-btn ${lang === "en" ? "active" : ""}`} onClick={() => lang !== "en" && toggle()}>EN</button>
@@ -115,14 +114,15 @@ function AppInner() {
         {screen === "adminLogin" && (
           <AuthScreen title={t.adminLogin} btnLabel={t.submit} onSubmit={(_, pw) => handleAdminLogin(pw)} isAdminLogin />
         )}
+        {/* TrackerScreen — leaderboard button removed; no onLeaderboard prop */}
         {screen === "tracker" && user && (
-          <TrackerScreen user={user} onLeaderboard={() => setScreen("leaderboard")} showToast={showToast} />
+          <TrackerScreen user={user} showToast={showToast} />
         )}
         {screen === "leaderboard" && (
           <LeaderboardScreen onBack={() => setScreen(user ? "tracker" : "home")} currentUserId={user?.id} />
         )}
         {screen === "admin" && isAdmin && (
-          <AdminScreen showToast={showToast} onLeaderboard={() => setScreen("leaderboard")} />
+          <AdminScreen showToast={showToast} />
         )}
       </main>
     </div>

@@ -35,10 +35,17 @@ export default function LeaderboardScreen({ onBack, currentUserId }) {
           return (
             <div key={p.id} className={`lb-row ${i < 3 ? "top" : ""} ${isMe ? "me" : ""}`}>
               <div className="lb-medal">{MEDALS[i] || "#" + (i + 1)}</div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div className={`lb-name ${i === 0 ? "gold-text" : ""}`}>
                   {p.name} {isMe && <span className="muted" style={{ fontSize: 10 }}>{t.youLabel}</span>}
                 </div>
+                {(p.parish || p.phone) && (
+                  <div className="lb-meta">
+                    {p.parish && <span>⛪ {p.parish}</span>}
+                    {p.parish && p.phone && <span className="lb-meta-sep">·</span>}
+                    {p.phone && <span>📞 {p.phone}</span>}
+                  </div>
+                )}
                 <div className="lb-sub">✅ {p.full} {t.fullMark} · ⚡ {p.partial} {t.partialMark}</div>
               </div>
               <CircleProgress pct={pct} size={50} light />
